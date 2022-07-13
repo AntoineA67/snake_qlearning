@@ -21,11 +21,12 @@ BLUE2 = (0, 100, 255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 30
-SPEED = 20
+SPEED = 10
 
 class SnakeGame:
 	
 	DISPLAY = True
+	NORMAL_GAME = True
 
 	def __init__(self, w=48, h=30):
 
@@ -34,17 +35,21 @@ class SnakeGame:
 		self.w_blocks = w
 		self.h_blocks = h
 
+		if not SnakeGame.DISPLAY:
+			SnakeGame.NORMAL_GAME = False
+
 		# init display
 		if SnakeGame.DISPLAY:
 			self.display = pygame.display.set_mode((self.w, self.h))
 			pygame.display.set_caption('Snake')
 			self.clock = pygame.time.Clock()
 
+		self.reset()
+
 	def reset(self):
-		# init game state
 		self.direction = random.randint(0, 3)
-		
 		self.head = Point(random.randint(1, self.w_blocks - 2), random.randint(1, self.h_blocks - 2))
+
 		self.snake = [self.head,
 					  Point(self.head.x - 1, self.head.y),
 					  Point(self.head.x - 2, self.head.y)]
@@ -53,6 +58,7 @@ class SnakeGame:
 		self.food = None
 		self._place_food()
 		self.frame = 0
+		self.reward = 0
 		
 	def _place_food(self):
 		x = random.randint(0, self.w_blocks)
@@ -62,38 +68,51 @@ class SnakeGame:
 			self.score += 1
 			self._place_food()
 		
-	def play_step(self, action):
-		# 1. collect user input
-		if action[1]:
-			self.direction = (self.direction + 1) % 4
-		elif action[2]:
-			self.direction = (self.direction - 1) % 4
-		
-		# 2. move
-		self._move(self.direction) # update the head
+	def play_step(self, action=None):
+		if SnakeGame.NORMAL_GAME:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					pygame.quit()
+					quit()
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_LEFT and self.direction != RIGHT:
+						self.direction = LEFT
+					elif event.key == pygame.K_RIGHT and self.direction != LEFT:
+						self.direction = RIGHT
+					elif event.key == pygame.K_UP and self.direction != DOWN:
+						self.direction = UP
+					elif event.key == pygame.K_DOWN and self.direction != UP:
+						self.direction = DOWN
+		else:
+			if action[1]:
+				self.direction = (self.direction + 1) % 4
+			elif action[2]:
+				self.direction = (self.direction - 1) % 4
+
+		self._move(self.direction)
 		self.snake.insert(0, self.head)
 		
-		# 3. check if game over
 		game_over = False
 		if self._is_collision():
 			game_over = True
-			return game_over, self.score
+			self.reward = -10
+			return game_over, self.score, self.reward
 			
-		# 4. place new food or just move
 		if self.head == self.food:
 			self.score += 1
+			self.reward = 10
 			self._place_food()
 		else:
 			self.snake.pop()
 		
 		# 5. update ui and clock
-		self._update_ui()
-		self.clock.tick(SPEED)
+		if SnakeGame.DISPLAY:
+			self._update_ui()
+			self.clock.tick(SPEED)
 		# 6. return game over and score
-		return game_over, self.score
+		return game_over, self.score, self.reward
 	
 	def _is_collision(self):
-		# hits boundary or itself
 		return self.head.x >= self.w_blocks or self.head.x < 0 or self.head.y >= self.h_blocks or self.head.y < 0\
 			or self.head in self.snake[1:]
 		
@@ -121,22 +140,18 @@ class SnakeGame:
 			y += 1
 		elif direction == UP:
 			y -= 1
-			
 		self.head = Point(x, y)
 			
 
 if __name__ == '__main__':
 	game = SnakeGame()
-	
-	# game loop
-	# sleep(2)
+
+	if SnakeGame.NORMAL_GAME:
+		sleep(2)
 	while True:
-		game_over, score = game.play_step()
-		
+		game_over, score, reward = game.play_step()
 		if game_over == True:
 			break
 		
-	print('Final Score', score)
-		
-		
+	print('Final Score', score)		
 	pygame.quit()
