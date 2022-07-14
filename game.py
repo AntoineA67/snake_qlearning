@@ -53,10 +53,10 @@ class SnakeGame:
 		self.food = None
 		self._place_food()
 
-		self.board[self.head.y, self.head.x, 0] = 100
+		self.board[self.head.y, self.head.x, 0] = 255
 		for p in self.snake[1:]:
-			self.board[p.y, p.x, 1] = 100
-		self.board[self.food.y, self.food.x, 2] = 100
+			self.board[p.y, p.x, 1] = 255
+		self.board[self.food.y, self.food.x, 2] = 255
 	
 	def _place_food(self):
 		x = random.randint(0, self.w_blocks - 1)
@@ -64,15 +64,15 @@ class SnakeGame:
 		f = Point(x, y)
 		if f not in self.snake:
 			self.food = f
-			self.board[y, x, 2] = 100
+			self.board[y, x, 2] = 255
 		else:
 			self._place_food()
 		
 	def play_step(self, action):
 		self.n_steps += 1
-		if action[1]:
+		if action == 1:
 			self.direction = (self.direction + 1) % 4
-		elif action[2]:
+		elif action == 2:
 			self.direction = (self.direction - 1) % 4
 		self._move(self.direction)
 		self.snake.insert(0, self.head)
@@ -83,9 +83,9 @@ class SnakeGame:
 			reward = -10
 			return self.score, reward, game_over
 
-		self.board[self.snake[0].y, self.snake[0].x, 0] = 100
+		self.board[self.snake[0].y, self.snake[0].x, 0] = 255
 		for p in self.snake:
-			self.board[p.y, p.x, 1] = 100
+			self.board[p.y, p.x, 1] = 255
 		if self.food == self.head:
 			self.n_steps = 0
 			self.score += 1
@@ -112,8 +112,8 @@ class SnakeGame:
 			d = i / len(self.snake) * 6
 			pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x * BLOCK_SIZE + d, pt.y * BLOCK_SIZE + d, BLOCK_SIZE - d * 2, BLOCK_SIZE - d * 2))
 			pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x * BLOCK_SIZE + 4 + d, pt.y * BLOCK_SIZE + 4 + d, 12 - d * 2, 12 - d * 2))
-		for f in self.food:
-			pygame.draw.rect(self.display, RED, pygame.Rect(f.x * BLOCK_SIZE, f.y * BLOCK_SIZE, BLOCK_SIZE - 2, BLOCK_SIZE - 2))
+
+		pygame.draw.rect(self.display, RED, pygame.Rect(self.food.x * BLOCK_SIZE, self.food.y * BLOCK_SIZE, BLOCK_SIZE - 2, BLOCK_SIZE - 2))
 		text = self.font.render("Score: " + str(self.score), True, WHITE)
 		self.display.blit(text, [0, 0])
 		pygame.display.flip()
@@ -124,6 +124,7 @@ class SnakeGame:
 		print('\n\n')
 	
 	def get_env(self):
+		return self.board.numpy()
 		return self.board.unsqueeze(0)
 		
 	def _move(self, direction):
