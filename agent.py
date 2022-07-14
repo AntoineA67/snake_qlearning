@@ -128,20 +128,20 @@ class DQN(nn.Module):
 		x = F.relu(self.bn3(self.conv3(x)))
 		return self.head(x.view(x.size(0), -1))
 
-BATCH_SIZE = 100
+BATCH_SIZE = 128
 GAMMA = 0.999
 EPS_START = 0.95
 EPS_END = 0.05
 EPS_DECAY = 500
-TARGET_UPDATE = 10
+TARGET_UPDATE = 20
 
 # Get screen size so that we can initialize layers correctly based on shape
 # returned from AI gym. Typical dimensions at this point are close to 3x40x90
 # which is the result of a clamped and down-scaled render buffer in get_screen()
 # init_screen = get_screen()
 # _, _, screen_height, screen_width = init_screen.shape
-HEIGHT = 12
-WIDTH = 20
+HEIGHT = 30
+WIDTH = 48
 # HEIGHT = 30
 # WIDTH = 48
 
@@ -171,7 +171,8 @@ def select_action(state):
 			# t.max(1) will return largest column value of each row.
 			# second column on max result is index of where max element was
 			# found, so we pick action with the larger expected reward.
-			# print(type(policy_net(state).max(1)[1].view(1, 1)))
+			# print(policy_net(state).argmax())
+			return policy_net(state).argmax()
 			return policy_net(state).max(1)[1].view(1, 1)
 	else:
 		return torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
@@ -203,10 +204,15 @@ def optimize_model():
 	if len(memory) < BATCH_SIZE:
 		return
 	transitions = memory.sample(BATCH_SIZE)
+	# print(transitions)
 	# Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
 	# detailed explanation). This converts batch-array of Transitions
 	# to Transition of batch-arrays.
 	batch = Transition(*zip(*transitions))
+	for i, m in enumerate(batch.state):
+		if m == None:
+			print(i)
+	# print(batch.state)
 
 	# Compute a mask of non-final states and concatenate the batch elements
 	# (a final state would've been the one after which simulation ended)
@@ -244,146 +250,146 @@ def optimize_model():
 		param.grad.data.clamp_(-1, 1)
 	optimizer.step()
 
-class Agent:
+# class Agent:
 
-	def __init__(self):
-		self.n_games = 0
-		self.epsilon = 0 # randomness
-		self.gamma = 0.9 # discount rate
-		self.memory = deque(maxlen=REPLAY_MEMORY_SIZE) # popleft()
-		self.model = Linear_QNet(11, 256, 3)
-		self.trainer = QTrainer(self.model, lr=.001, gamma=self.gamma)
+# 	def __init__(self):
+# 		self.n_games = 0
+# 		self.epsilon = 0 # randomness
+# 		self.gamma = 0.9 # discount rate
+# 		self.memory = deque(maxlen=REPLAY_MEMORY_SIZE) # popleft()
+# 		# self.model = DQN()
+# 		self.model = Linear_QNet(11, 256, 3)
+# 		self.trainer = QTrainer(self.model, lr=.001, gamma=self.gamma)
 
 
-	def get_state(self, game: SnakeGame):
-		# head = game.snake[0]
-		# point_l = Point(head.x - 20, head.y)
-		# point_r = Point(head.x + 20, head.y)
-		# point_u = Point(head.x, head.y - 20)
-		# point_d = Point(head.x, head.y + 20)
+# 	def get_state(self, game: SnakeGame):
+# 		# head = game.snake[0]
+# 		# point_l = Point(head.x - 20, head.y)
+# 		# point_r = Point(head.x + 20, head.y)
+# 		# point_u = Point(head.x, head.y - 20)
+# 		# point_d = Point(head.x, head.y + 20)
 		
-		# dir_l = game.direction == Direction.LEFT
-		# dir_r = game.direction == Direction.RIGHT
-		# dir_u = game.direction == Direction.UP
-		# dir_d = game.direction == Direction.DOWN
+# 		# dir_l = game.direction == Direction.LEFT
+# 		# dir_r = game.direction == Direction.RIGHT
+# 		# dir_u = game.direction == Direction.UP
+# 		# dir_d = game.direction == Direction.DOWN
 
-		# state = [
-		# 	# Danger straight
-		# 	(dir_r and game.is_collision(point_r)) or 
-		# 	(dir_l and game.is_collision(point_l)) or 
-		# 	(dir_u and game.is_collision(point_u)) or 
-		# 	(dir_d and game.is_collision(point_d)),
+# 		# state = [
+# 		# 	# Danger straight
+# 		# 	(dir_r and game.is_collision(point_r)) or 
+# 		# 	(dir_l and game.is_collision(point_l)) or 
+# 		# 	(dir_u and game.is_collision(point_u)) or 
+# 		# 	(dir_d and game.is_collision(point_d)),
 
-		# 	# Danger right
-		# 	(dir_u and game.is_collision(point_r)) or 
-		# 	(dir_d and game.is_collision(point_l)) or 
-		# 	(dir_l and game.is_collision(point_u)) or 
-		# 	(dir_r and game.is_collision(point_d)),
+# 		# 	# Danger right
+# 		# 	(dir_u and game.is_collision(point_r)) or 
+# 		# 	(dir_d and game.is_collision(point_l)) or 
+# 		# 	(dir_l and game.is_collision(point_u)) or 
+# 		# 	(dir_r and game.is_collision(point_d)),
 
-		# 	# Danger left
-		# 	(dir_d and game.is_collision(point_r)) or 
-		# 	(dir_u and game.is_collision(point_l)) or 
-		# 	(dir_r and game.is_collision(point_u)) or 
-		# 	(dir_l and game.is_collision(point_d)),
+# 		# 	# Danger left
+# 		# 	(dir_d and game.is_collision(point_r)) or 
+# 		# 	(dir_u and game.is_collision(point_l)) or 
+# 		# 	(dir_r and game.is_collision(point_u)) or 
+# 		# 	(dir_l and game.is_collision(point_d)),
 			
-		# 	# Move direction
-		# 	dir_l,
-		# 	dir_r,
-		# 	dir_u,
-		# 	dir_d,
+# 		# 	# Move direction
+# 		# 	dir_l,
+# 		# 	dir_r,
+# 		# 	dir_u,
+# 		# 	dir_d,
 			
-		# 	# Food location 
-		# 	game.food.x < game.head.x,  # food left
-		# 	game.food.x > game.head.x,  # food right
-		# 	game.food.y < game.head.y,  # food up
-		# 	game.food.y > game.head.y  # food down
-		# 	]
-		print(game.get_env())
-		return game.get_env()
-		# return np.array(state, dtype=int)
+# 		# 	# Food location 
+# 		# 	game.food.x < game.head.x,  # food left
+# 		# 	game.food.x > game.head.x,  # food right
+# 		# 	game.food.y < game.head.y,  # food up
+# 		# 	game.food.y > game.head.y  # food down
+# 		# 	]
+# 		print(game.get_env())
+# 		return game.get_env()
+# 		# return np.array(state, dtype=int)
 
-	def remember(self, state, action, reward, next_state, done):
-		self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
+# 	def remember(self, state, action, reward, next_state, done):
+# 		self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
 
-	def train_long_memory(self):
-		if len(self.memory) > BATCH_SIZE:
-			mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
-		else:
-			mini_sample = self.memory
+# 	def train_long_memory(self):
+# 		if len(self.memory) > BATCH_SIZE:
+# 			mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
+# 		else:
+# 			mini_sample = self.memory
 
-		states, actions, rewards, next_states, dones = zip(*mini_sample)
-		self.trainer.train_step(states, actions, rewards, next_states, dones)
-		#for state, action, reward, nexrt_state, done in mini_sample:
-		#	self.trainer.train_step(state, action, reward, next_state, done)
+# 		states, actions, rewards, next_states, dones = zip(*mini_sample)
+# 		self.trainer.train_step(states, actions, rewards, next_states, dones)
+# 		#for state, action, reward, nexrt_state, done in mini_sample:
+# 		#	self.trainer.train_step(state, action, reward, next_state, done)
 
-	def train_short_memory(self, state, action, reward, next_state, done):
-		self.trainer.train_step(state, action, reward, next_state, done)
+# 	def train_short_memory(self, state, action, reward, next_state, done):
+# 		self.trainer.train_step(state, action, reward, next_state, done)
 
-	def get_action(self, state):
-		# random moves: tradeoff exploration / exploitation
-		self.epsilon = 80 - self.n_games
-		final_move = [0,0,0]
-		if random.randint(0, 200) < self.epsilon:
-			move = random.randint(0, 2)
-			final_move[move] = 1
-		else:
-			state0 = torch.tensor(state, dtype=torch.float)
-			prediction = self.model(state0)
-			move = torch.argmax(prediction).item()
-			final_move[move] = 1
+# 	def get_action(self, state):
+# 		# random moves: tradeoff exploration / exploitation
+# 		self.epsilon = 80 - self.n_games
+# 		final_move = [0,0,0]
+# 		if random.randint(0, 200) < self.epsilon:
+# 			move = random.randint(0, 2)
+# 			final_move[move] = 1
+# 		else:
+# 			state0 = torch.tensor(state, dtype=torch.float)
+# 			prediction = self.model(state0)
+# 			move = torch.argmax(prediction).item()
+# 			final_move[move] = 1
 
-		return final_move
+# 		return final_move
 
 
-def train():
-	plot_scores = []
-	plot_mean_scores = []
-	total_score = 0
-	record = 0
-	pygame.init()
-	font = pygame.font.SysFont('arial', 25)
-	agent = Agent()
-	game = SnakeGame(w=WIDTH, h=HEIGHT, font=font)
-	while True:
-		# get old state
-		state_old = agent.get_state(game)
+# def train():
+# 	plot_scores = []
+# 	plot_mean_scores = []
+# 	total_score = 0
+# 	record = 0
+# 	pygame.init()
+# 	font = pygame.font.SysFont('arial', 25)
+# 	agent = Agent()
+# 	game = SnakeGame(w=WIDTH, h=HEIGHT, font=font)
+# 	while True:
+# 		# get old state
+# 		state_old = agent.get_state(game)
 
-		# get move
-		final_move = agent.get_action(state_old)
-		# print(final_move)
+# 		# get move
+# 		final_move = agent.get_action(state_old)
+# 		# print(final_move)
 
-		# perform move and get new state
-		score, reward, done = game.play_step(final_move)
-		print(reward)
-		state_new = agent.get_state(game)
+# 		# perform move and get new state
+# 		score, reward, done = game.play_step(final_move)
+# 		print(reward)
+# 		state_new = agent.get_state(game)
 
-		# train short memory
-		agent.train_short_memory(state_old, final_move, reward, state_new, done)
+# 		# train short memory
+# 		agent.train_short_memory(state_old, final_move, reward, state_new, done)
 
-		# remember
-		agent.remember(state_old, final_move, reward, state_new, done)
+# 		# remember
+# 		agent.remember(state_old, final_move, reward, state_new, done)
 
-		if done:
-			# train long memory, plot result
-			game.reset()
-			agent.n_games += 1
-			agent.train_long_memory()
+# 		if done:
+# 			# train long memory, plot result
+# 			game.reset()
+# 			agent.n_games += 1
+# 			agent.train_long_memory()
 
-			if score > record:
-				record = score
-				agent.model.save()
+# 			if score > record:
+# 				record = score
+# 				agent.model.save()
 
-			print('Game', agent.n_games, 'Score', score, 'Record:', record)
+# 			print('Game', agent.n_games, 'Score', score, 'Record:', record)
 
-			plot_scores.append(score)
-			total_score += score
-			mean_score = total_score / agent.n_games
-			plot_mean_scores.append(mean_score)
-			plot(plot_scores, plot_mean_scores)
-	pygame.quit()
+# 			plot_scores.append(score)
+# 			total_score += score
+# 			mean_score = total_score / agent.n_games
+# 			plot_mean_scores.append(mean_score)
+# 			plot(plot_scores, plot_mean_scores)
+# 	pygame.quit()
 
 def main():
-	
 	if SnakeGame.NORMAL_GAME:
 		pygame.init()
 		font = pygame.font.SysFont('arial', 25)
@@ -416,11 +422,17 @@ def main():
 		# 	score = state[0]
 		# 	sleep(.4)
 
-		num_episodes = 200
+		num_episodes = 1500
+		n_games = 0
+		plot_scores = []
+		plot_mean_scores = []
+		total_score = 0
+		record = 0
+
 		for i_episode in range(num_episodes):
 			# Initialize the environment and state
 			env.reset()
-			last_screen = env.get_env()
+			# last_screen = env.get_env()
 			current_screen = env.get_env()
 			state = current_screen
 			# state = current_screen - last_screen
@@ -435,10 +447,11 @@ def main():
 				score, reward, done = env.play_step(action=action_game)
 				# if t % 10 == 0:
 				print(reward, score)
+				env.get_state(verbose=True)
 				reward = torch.tensor([reward], device=device)
 
 				# Observe new state
-				last_screen = current_screen
+				# last_screen = current_screen
 				current_screen = env.get_env()
 				if not done:
 					next_state = current_screen
@@ -447,6 +460,7 @@ def main():
 					next_state = None
 
 				# Store the transition in memory
+				print(state, action, next_state, reward)
 				memory.push(state, action, next_state, reward)
 
 				# Move to the next state
@@ -457,16 +471,28 @@ def main():
 				if done:
 					env.reset()
 					episode_durations.append(score)
+					n_games += 1
+
+					if score > record:
+						record = score
+
+					print('Game', n_games, 'Score', score, 'Record:', record)
+
+					plot_scores.append(score)
+					total_score += score
+					mean_score = total_score / n_games
+					plot_mean_scores.append(mean_score)
+					plot(plot_scores, plot_mean_scores)
 					# plot_durations()
 					break
 			# Update the target network, copying all weights and biases in DQN
-			print(score)
+			# print(score)
 			if i_episode % TARGET_UPDATE == 0:
 				target_net.load_state_dict(policy_net.state_dict())
 
 		print('Complete')
-		env.render()
-		env.close()
+		# env.render()
+		# env.close()
 		plt.ioff()
 		plt.show()
 
@@ -476,4 +502,4 @@ def main():
 
 
 if __name__ == '__main__':
-	train()
+	main()

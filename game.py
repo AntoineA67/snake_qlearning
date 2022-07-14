@@ -62,9 +62,9 @@ class SnakeGame:
 		# print(self.direction, self.snake)
 		# self.board = np.zeros((self.h_blocks, self.w_blocks), dtype=torch.cuda.)
 		self.n_steps = 0
-		self.board = torch.zeros((self.h_blocks, self.w_blocks))
-		self.explored = torch.zeros((self.h_blocks, self.w_blocks))
-		self.food_board = torch.zeros((self.h_blocks, self.w_blocks))
+		self.board = torch.zeros((self.h_blocks, self.w_blocks, 3))
+		# self.explored = torch.zeros((self.h_blocks, self.w_blocks))
+		# self.food_board = torch.zeros((self.h_blocks, self.w_blocks))
 
 		# self.board = np.zeros((self.h_blocks + 2, self.w_blocks + 2), dtype=int)
 		# self.board[0] = np.ones(self.board.shape[1])
@@ -79,14 +79,14 @@ class SnakeGame:
 		self.game_over = False
 		self.reward = 0
 
-		# for p in self.snake:
-		# 	self.board[p.y, p.x] = 100
-		# 	self.explored[p.y, p.x] = 1
-		self.board[self.head.y, self.head.x] = 50
+		for p in self.snake[:-1]:
+			self.board[p.y, p.x, 1] = 100
+			# self.explored[p.y, p.x] = 1
+		self.board[self.head.y, self.head.x, 0] = 100
 
 		for f in self.food:
-			self.food_board[f.y, f.x] = 255
-			self.board[f.y, f.x] = 255
+			# self.food_board[f.y, f.x] = 255
+			self.board[f.y, f.x, 2] = 100
 			
 		# for f in self.food:
 		# 	self.board[f.y, f.x] = 100
@@ -149,13 +149,13 @@ class SnakeGame:
 			self.game_over = True
 		if self._is_collision():
 			self.game_over = True
-			self.reward = - 10
+			self.reward = - 100
 			return self.score, self.reward, self.game_over
 
 		for p in self.snake:
 			self.board[p.y, p.x] = 50
 		self.board[self.snake[0].y, self.snake[0].x] = 100
-		if self.explored[self.snake[0].y, self.snake[0].x]:
+		# if self.explored[self.snake[0].y, self.snake[0].x]:
 			pass
 			# self.reward = -2
 		else:
@@ -175,9 +175,6 @@ class SnakeGame:
 		if SnakeGame.DISPLAY:
 			self._update_ui()
 			self.clock.tick(self.speed)
-		
-		# if self.n_steps > 100:
-			# self.game_over = True
 
 		return self.score, self.reward, self.game_over
 	
@@ -205,7 +202,7 @@ class SnakeGame:
 
 		if verbose:
 			# print(food_dist)
-			board = self.explored.numpy()
+			board = self.board.numpy()
 			# board = self.board.numpy()
 			print('\n'.join([' '.join([str(x) for x in board[i]]) for i in range(len(board))]))
 			print('\n\n')
@@ -216,6 +213,7 @@ class SnakeGame:
 		# self.food_board[self.head.y, self.head.x] = 100
 		# return self.food_board.unsqueeze(0).unsqueeze(0)
 		# print(self.board.unsqueeze(0).unsqueeze(0))
+		return self.board.unsqueeze(0).unsqueeze(0)
 		f = list(self.food)[0]
 
 		s = Point(self.head.x + (self.direction == RIGHT) - (self.direction == LEFT), self.head.y - (self.direction == UP) + (self.direction == DOWN))
@@ -229,7 +227,6 @@ class SnakeGame:
 
 		return (self.direction, self.score, self.head.x, self.head.y, 10 / (abs(self.head.x - f.x) + abs(self.head.y - f.y) + 1), f.x, f.y)
 		return self.board.flatten()
-		return self.board.unsqueeze(0).unsqueeze(0)
 		
 	def _move(self, direction):
 		self.head = Point(self.head.x + (direction == RIGHT) - (direction == LEFT),
