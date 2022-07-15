@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
+from time import sleep
 from PIL import Image
 
 import torch
@@ -19,7 +20,7 @@ from game import SnakeGame
 import pygame
 pygame.init()
 font = pygame.font.SysFont('arial', 25)
-env = SnakeGame(font=font)
+env = SnakeGame(font=font, w=4, h=4, display=True)
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -93,40 +94,28 @@ def get_screen():
 	# Returned screen requested by gym is 400x600x3, but is sometimes larger
 	# such as 800x1200x3. Transpose it into torch order (CHW).
 	screen = env.get_env().transpose((2, 0, 1))
-	# Cart is in the lower half, so strip off the top and bottom of the screen
-	# _, screen_height, screen_width = screen.shape
-	# screen = screen[:, int(screen_height*0.4):int(screen_height * 0.8)]
-	# view_width = int(screen_width * 0.6)
-	# cart_location = get_cart_location(screen_width)
-	# if cart_location < view_width // 2:
-	# 	slice_range = slice(view_width)
-	# elif cart_location > (screen_width - view_width // 2):
-	# 	slice_range = slice(-view_width, None)
-	# else:
-	# 	slice_range = slice(cart_location - view_width // 2,
-	# 						cart_location + view_width // 2)
-	# # Strip off the edges, so that we have a square image centered on a cart
-	# screen = screen[:, :, slice_range]
-	# Convert to float, rescale, convert to torch tensor
-	# (this doesn't require a copy)
-	screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
+	# print(screen)
+	screen = np.ascontiguousarray(screen, dtype=np.float32)
 	screen = torch.from_numpy(screen)
+	# screen = torch.nn.Upsample(scale_factor=2, mode='nearest')(screen)
 	# Resize, and add a batch dimension (BCHW)
+	# print(screen.unsqueeze(0).shape, screen.unsqueeze(0))
+	
 	return screen.unsqueeze(0)
 
 
-env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-		   interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
+# env.reset()
+# plt.figure()
+# plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
+# 		   interpolation='none')
+# plt.title('Example extracted screen')
+# plt.show()
 
-BATCH_SIZE = 128
+BATCH_SIZE = 100
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 200
+EPS_DECAY = 1000
 TARGET_UPDATE = 10
 
 # Get screen size so that we can initialize layers correctly based on shape
@@ -134,6 +123,7 @@ TARGET_UPDATE = 10
 # which is the result of a clamped and down-scaled render buffer in get_screen()
 init_screen = get_screen()
 _, _, screen_height, screen_width = init_screen.shape
+print(init_screen.shape)
 
 # Get number of actions from gym action space
 n_actions = 3
@@ -146,15 +136,16 @@ target_net.eval()
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(10000)
 
-
 steps_done = 0
-
 
 def select_action(state):
 	global steps_done
 	sample = random.random()
-	eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-		math.exp(-1. * steps_done / EPS_DECAY)
+	if steps_done > 3000:
+		eps_threshold = EPS_END + (EPS_START - EPS_END) * \
+			math.exp(-1. * steps_done / EPS_DECAY)
+	else:
+		eps_threshold = .9
 	steps_done += 1
 	if sample > eps_threshold:
 		with torch.no_grad():
@@ -167,15 +158,26 @@ def select_action(state):
 
 
 episode_durations = []
+eps = []
+record_arr = []
 
-def plot_durations():
+def plot_durations(record):
 	plt.figure(2)
 	plt.clf()
 	durations_t = torch.tensor(episode_durations, dtype=torch.float)
 	plt.title('Training...')
 	plt.xlabel('Episode')
-	plt.ylabel('Duration')
+	plt.ylabel('Score')
 	plt.plot(durations_t.numpy())
+	if steps_done > 3000:
+		eps_threshold = EPS_END + (EPS_START - EPS_END) * \
+			math.exp(-1. * steps_done / EPS_DECAY)
+	else:
+		eps_threshold = .9
+	eps.append(eps_threshold)
+	record_arr.append(record)
+	plt.plot(eps)
+	plt.plot(record_arr)
 	# Take 100 episode averages and plot them too
 	if len(durations_t) >= 100:
 		means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
@@ -234,38 +236,63 @@ def optimize_model():
 
 
 def main():
-	num_episodes = 300
+	num_episodes = 5000
+	plt.figure()
+	record = 0
+	_, ax = plt.subplots(ncols=2)
 	for i_episode in range(num_episodes):
 		# Initialize the environment and state
 		env.reset()
 		last_screen = get_screen()
 		current_screen = get_screen()
-		state = current_screen - last_screen
+		state = current_screen
+		# state = current_screen * last_screen
+
 		for t in count():
 			# Select and perform an action
+			# print(state[0, 0].numpy())
+			# print(state[0, 1].numpy())
+			# print(state[0, 2].numpy())
 			action = select_action(state)
-			_, reward, done = env.play_step(action.item())
+			# action = torch.tensor([[random.randrange(n_actions)]], device=device, dtype=torch.long)
+
+			# print(action.item())
+			score, reward, done = env.play_step(action.item())
 			reward = torch.tensor([reward], device=device)
 
 			# Observe new state
 			last_screen = current_screen
 			current_screen = get_screen()
 			if not done:
-				next_state = current_screen - last_screen
+				next_state = current_screen
+				# next_state = current_screen * last_screen
 			else:
 				next_state = None
 
 			# Store the transition in memory
-			memory.push(state, action, next_state, reward)
+			if score > record:
+				print(score)
+				memory.push(state, action, next_state, reward)
+				record = score
 
 			# Move to the next state
-			state = next_state
+			# if next_state is not None:
+			# 	if last_screen is not None:
+			# 		ax[0].imshow(last_screen.cpu().squeeze(0).permute(1, 2, 0).numpy(),
+			# 				interpolation='none')
+			# 	ax[1].imshow(next_state.cpu().squeeze(0).permute(1, 2, 0).numpy(),
+			# 			interpolation='none')
+			# 	plt.title(f'AI vision, reward: {reward.item()}')
+			# 	plt.show()
+			# state = next_state
+			# input()
+			# sleep(.2)
 
 			# Perform one step of the optimization (on the policy network)
 			optimize_model()
 			if done:
-				episode_durations.append(t + 1)
-				plot_durations()
+				episode_durations.append(score)
+				plot_durations(record)
 				break
 		# Update the target network, copying all weights and biases in DQN
 		if i_episode % TARGET_UPDATE == 0:

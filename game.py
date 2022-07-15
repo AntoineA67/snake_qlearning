@@ -27,7 +27,9 @@ class SnakeGame:
 	
 	DISPLAY = True
 
-	def __init__(self, font, w=48, h=30):
+	def __init__(self, font, w=48, h=30, display=True):
+		if not display:
+			SnakeGame.DISPLAY = False
 		self.speed = 1000
 		self.font = font
 		self.w = w * BLOCK_SIZE
@@ -43,20 +45,21 @@ class SnakeGame:
 
 	def reset(self):
 		self.direction = random.randint(0, 3)
-		self.head = Point(random.randint(1, self.w_blocks - 3), random.randint(1, self.h_blocks - 3))
+		self.head = Point(random.randint(1, self.w_blocks - 4), random.randint(1, self.h_blocks - 4))
 		self.snake = [self.head,
 					  Point(self.head.x + (self.direction == LEFT) - (self.direction == RIGHT), self.head.y + (self.direction == UP) - (self.direction == DOWN)),
-					  Point(self.head.x + (self.direction == LEFT) * 2 - (self.direction == RIGHT) * 2, self.head.y + (self.direction == UP) * 2 - (self.direction == DOWN) * 2)]
+					  Point(self.head.x + (self.direction == LEFT) * 2 - (self.direction == RIGHT) * 2, self.head.y + (self.direction == UP) * 2 - (self.direction == DOWN) * 2),
+					  Point(self.head.x + (self.direction == LEFT) * 3 - (self.direction == RIGHT) * 3, self.head.y + (self.direction == UP) * 3 - (self.direction == DOWN) * 3)]
 		self.n_steps = 0
 		self.board = torch.zeros((self.h_blocks, self.w_blocks, 3))
 		self.score = 0
 		self.food = None
 		self._place_food()
 
-		self.board[self.head.y, self.head.x, 0] = 255
+		self.board[self.head.y, self.head.x, 0] = 1
 		for p in self.snake[1:]:
-			self.board[p.y, p.x, 1] = 255
-		self.board[self.food.y, self.food.x, 2] = 255
+			self.board[p.y, p.x, 1] = 1
+		self.board[self.food.y, self.food.x, 2] = 1
 	
 	def _place_food(self):
 		x = random.randint(0, self.w_blocks - 1)
@@ -64,28 +67,36 @@ class SnakeGame:
 		f = Point(x, y)
 		if f not in self.snake:
 			self.food = f
-			self.board[y, x, 2] = 255
+			self.board[y, x, 2] = 1
 		else:
 			self._place_food()
 		
 	def play_step(self, action):
+		food_dist = np.sqrt(np.power(abs(self.head.x - self.food.x), 2) + np.power(abs(self.head.y - self.food.y), 2))
 		self.n_steps += 1
 		if action == 1:
 			self.direction = (self.direction + 1) % 4
 		elif action == 2:
 			self.direction = (self.direction - 1) % 4
+
+		self.board[self.head.y, self.head.x, 0] = 0
 		self._move(self.direction)
 		self.snake.insert(0, self.head)
 
-		game_over, reward = False, 0
+		new_dist = np.sqrt(np.power(abs(self.head.x - self.food.x), 2) + np.power(abs(self.head.y - self.food.y), 2))
+		game_over, reward = False, int(new_dist < food_dist) - int(new_dist > food_dist)
+		# int(new_dist < food_dist) - int(new_dist > food_dist)
+		# 2 / (abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y) + 1)
 		if self._is_collision() or self.n_steps > 200:
 			game_over = True
 			reward = -10
 			return self.score, reward, game_over
 
-		self.board[self.snake[0].y, self.snake[0].x, 0] = 255
-		for p in self.snake:
-			self.board[p.y, p.x, 1] = 255
+		self.board[self.head.y, self.head.x, 0] = 1
+		for i, p in enumerate(self.snake):
+			self.board[p.y, p.x, 1] = 1 - i / len(self.snake)
+			# self.board[p.y, p.x, 1] = np.maximum(0, 1 -  (i + 1e-15))
+		# self.board[:, :, 1] = np.maximum(0, self.board[:, :, 1] - 1 / (len(self.snake) + 1e-15))
 		if self.food == self.head:
 			self.n_steps = 0
 			self.score += 1
@@ -94,6 +105,7 @@ class SnakeGame:
 			self._place_food()
 		else:
 			self.board[self.snake[-1].y, self.snake[-1].x, 1] = 0
+			# self.board[self.snake[-1].y, self.snake[-1].x, 1] -= 1 / (len(self.snake) + 1e-15)
 			self.snake.pop()
 
 		if SnakeGame.DISPLAY:
