@@ -45,10 +45,11 @@ class SnakeGame:
 
 	def reset(self):
 		self.direction = random.randint(0, 3)
-		self.head = Point(random.randint(1, self.w_blocks - 3), random.randint(1, self.h_blocks - 3))
+		self.head = Point(random.randint(3, self.w_blocks - 3), random.randint(3, self.h_blocks - 3))
 		self.snake = [self.head,
 					  Point(self.head.x + (self.direction == LEFT) - (self.direction == RIGHT), self.head.y + (self.direction == UP) - (self.direction == DOWN)),
-					  Point(self.head.x + (self.direction == LEFT) * 2 - (self.direction == RIGHT) * 2, self.head.y + (self.direction == UP) * 2 - (self.direction == DOWN) * 2)]
+					  Point(self.head.x + (self.direction == LEFT) * 2 - (self.direction == RIGHT) * 2, self.head.y + (self.direction == UP) * 2 - (self.direction == DOWN) * 2),
+					  Point(self.head.x + (self.direction == LEFT) * 3 - (self.direction == RIGHT) * 3, self.head.y + (self.direction == UP) * 3 - (self.direction == DOWN) * 3)]
 		self.n_steps = 0
 		self.board = torch.zeros((self.h_blocks, self.w_blocks, 3))
 		self.score = 0
@@ -71,8 +72,8 @@ class SnakeGame:
 			self._place_food()
 		
 	def play_step(self, action):
-		if action is None:
-			return self.score, 0, False
+		if type(action) != int:
+			raise TypeError('Action should be an integer')
 		food_dist = np.sqrt(np.power(abs(self.head.x - self.food.x), 2) + np.power(abs(self.head.y - self.food.y), 2))
 		self.n_steps += 1
 		if action == 1:
@@ -85,7 +86,7 @@ class SnakeGame:
 		self.snake.insert(0, self.head)
 
 		new_dist = np.sqrt(np.power(abs(self.head.x - self.food.x), 2) + np.power(abs(self.head.y - self.food.y), 2))
-		game_over, reward = False, 0
+		game_over, reward = False, int(new_dist < food_dist) - int(new_dist > food_dist)
 		# int(new_dist < food_dist) - int(new_dist > food_dist)
 		# 2 / (abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y) + 1)
 		if self._is_collision() or self.n_steps > 200:
@@ -153,7 +154,7 @@ class SnakeGame:
 			sensor = [(i, j) for i in range(-2, 1) for j in range(-2, 3)]
 
 		sensor.pop(-3)
-		s = [angle, self.food.x > self.head.x, self.food.x < self.head.x, self.food.y > self.head.y, self.food.y < self.head.y, 1 / (abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y))]
+		s = [angle, self.food.x > self.head.x, self.food.x < self.head.x, self.food.y > self.head.y, self.food.y < self.head.y, 1 / (abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y) + 1e-15)]
 		for x, y in sensor:
 			dx = self.head.x + x
 			dy = self.head.y - y
