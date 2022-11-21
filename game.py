@@ -45,7 +45,7 @@ class SnakeGame:
 
 	def reset(self):
 		self.direction = random.randint(0, 3)
-		self.head = Point(random.randint(3, self.w_blocks - 3), random.randint(3, self.h_blocks - 3))
+		self.head = Point(random.randint(3, self.w_blocks - 4), random.randint(3, self.h_blocks - 4))
 		self.snake = [self.head,
 					  Point(self.head.x + (self.direction == LEFT) - (self.direction == RIGHT), self.head.y + (self.direction == UP) - (self.direction == DOWN)),
 					  Point(self.head.x + (self.direction == LEFT) * 2 - (self.direction == RIGHT) * 2, self.head.y + (self.direction == UP) * 2 - (self.direction == DOWN) * 2),
@@ -161,6 +161,7 @@ class SnakeGame:
 			p = Point(dx, dy)
 			s.append(float(dx >= self.w_blocks or dx < 0 or dy >= self.h_blocks or dy < 0 or p in self.snake))
 
+		return [angle, 1 / (abs(self.head.x - self.food.x) + abs(self.head.y - self.food.y) + 1e-15), s[13], s[17], s[18]]
 		return s
 		
 	def _move(self, direction):

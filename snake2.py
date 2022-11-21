@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import keras as k
 import tensorflow as tf
+import matplotlib
 
 EPISODES		= 5000
 GAMMA			= .99
@@ -35,9 +36,10 @@ class Agent:
 		self.reward_exp = []
 
 	def create_model(self):
-		inputs = layers.Input(shape=(20,))
+		inputs = layers.Input(shape=(5,))
 		hidden = layers.Dense(50, activation='relu')(inputs)
-		outputs = layers.Dense(3, activation='softmax')(hidden)
+		hidden2 = layers.Dense(50, activation='relu')(hidden)
+		outputs = layers.Dense(3, activation='softmax')(hidden2)
 		model = k.Model(inputs=inputs, outputs=[outputs])
 		model.compile(optimizer='adam', metrics=['accuracy'])
 		return model
@@ -51,15 +53,15 @@ class Agent:
 		self.state_exp.append(state)
 		self.reward_exp.append(reward)
 
-def plot_results(ep, scores, rewards_mean, rand_ratio):
+def plot_results(scores, rewards_mean, rand_ratio):
 	# plt.figure()
 	plt.clf()
 	plt.title('Training...')
 	plt.xlabel('Episode')
 	plt.plot(scores, label='Score')
-	plt.plot(rewards_mean, label='Score mean')
-	plt.plot(rand_ratio, label='Random ratio')
-	plt.plot(ep)
+	plt.plot(rewards_mean, label='Reward mean')
+	# plt.plot(rand_ratio, label='Random ratio')
+	plt.legend()
 
 	plt.pause(0.001)  # pause a bit so that plots are updated
 	if is_ipython:
@@ -157,7 +159,7 @@ def main():
 		rewards_mean.append(np.mean(rewards))
 		rand_ratio.append(r / (c + 1e-15))
 		scores_ep.append(score)
-		plot_results(np.arange(ep), scores, rewards_mean, r/(c + 1e-15))
+		plot_results(scores_ep, rewards_mean, rand_ratio)
 		game.reset()
 	agent.model.save('./model')
 	agent.model_target.save('./model_target')
